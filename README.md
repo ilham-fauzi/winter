@@ -1,12 +1,15 @@
 # Winter - Snowflake Terminal Client
 
-❄️ **Winter** is a powerful terminal client for Snowflake with advanced table scrolling, prefix support, security controls, and comprehensive query management.
+❄️ **Winter** is a powerful q
 
 ## ✨ Features
 
-- 🔐 **RSA Keypair Authentication** - Secure authentication using .p8 private keys
+- 🔐 **Dual Authentication Support** - Password authentication or RSA keypair authentication (.p8 private keys)
+- 🔍 **File Browser** - Interactive file browser for selecting private key files during setup
 - 🏷️ **Table Prefix System** - Automatic prefix application to all table references (JOINs, subqueries, CTEs, DML, DDL)
 - 🔒 **Security Controls** - Default SELECT-only with configurable permissions and audit logging
+- ⏰ **Connection Timeout** - Automatic connection timeout after 5 minutes of inactivity
+- 🔌 **Mandatory Connection** - Must run `winter connect` before executing queries for better security
 - 📊 **Interactive Table Display** - Smooth vertical and horizontal scrolling with Rich tables
 - 🎮 **Advanced Scrolling** - Arrow keys and WASD navigation without Enter key
 - 📈 **Data Analysis** - Intelligent column formatting and data type detection
@@ -25,6 +28,9 @@ pip install winter
 
 # Run interactive setup wizard
 winter setup
+
+# Connect to Snowflake (mandatory before queries)
+winter connect
 
 # Execute your first query (default: 10 rows, 5 columns)
 winter execute-query "SELECT * FROM users"
@@ -59,16 +65,88 @@ pip install -r requirements-dev.txt
 
 ## ⚙️ Configuration
 
-Winter uses `~/.snowflake/config.yaml` for configuration:
+Winter uses `~/.winter/config.yaml` for configuration and supports two authentication methods:
 
+### 🔐 Authentication Methods
+
+#### 1. Password Authentication
 ```yaml
 account: your_account.snowflakecomputing.com
 user: your_username
+auth_method: password
+password: your_password  # Optional: leave empty to prompt each time
+warehouse: COMPUTE_WH
+database: YOUR_DB
+schema: PUBLIC
+role: YOUR_ROLE
+connection_timeout: 5  # Minutes (or use hours: 0.5 = 30 minutes)
+```
+
+#### 2. RSA Keypair Authentication
+```yaml
+account: your_account.snowflakecomputing.com
+user: your_username
+auth_method: keypair
 private_key_path: ~/.snowflake/rsa_key.p8
 warehouse: COMPUTE_WH
 database: YOUR_DB
 schema: PUBLIC
 role: YOUR_ROLE
+connection_timeout: 5  # Minutes (or use hours: 0.5 = 30 minutes)
+```
+
+### 🔒 Security Configuration
+
+**SELECT-Only Enforcement:**
+- 🔒 **SELECT-only queries** - Only SELECT statements allowed by default
+- 🛡️ **Data protection** - Prevents accidental data modification
+- 🔐 **Secure by default** - No DML/DDL operations allowed
+- 📝 **Audit logging** - All queries are logged for security
+
+### 🔍 File Browser for Private Key Setup
+
+**Interactive File Selection:**
+- 🔍 **File browser** - Navigate directories to find .p8 files
+- 📁 **Smart navigation** - Start from Downloads directory
+- 📄 **File filtering** - Only shows .p8 files and directories
+- 📊 **File information** - Shows file size and details
+- ✅ **Auto-copy** - Automatically copies selected file to `~/.winter/rsa_key.p8`
+- 🔍 **Manual search** - Search for .p8 files in specific directories
+
+**Search Options:**
+- 📥 **Downloads directory** - Search in Downloads folder
+- 🖥️ **Desktop directory** - Search in Desktop folder  
+- 📄 **Documents directory** - Search in Documents folder
+- 🏠 **Home directory** - Search in entire home directory
+- 📁 **Custom directory** - Search in user-specified directory
+- 🔄 **Recursive search** - Finds .p8 files in subdirectories
+
+**Setup Flow:**
+```bash
+winter setup
+
+# Choose RSA Keypair Authentication
+# Choose "Browse for .p8 file (Recommended)"
+# Navigate directories OR type 'search' for manual search
+# Select your .p8 file
+# File automatically copied to ~/.winter/rsa_key.p8
+```
+
+### ⏰ Connection Timeout Configuration
+
+**Configurable Timeout:**
+- **Minutes**: `connection_timeout: 5` (5 minutes)
+- **Hours**: `connection_timeout: 0.5` (30 minutes)
+- **Default**: 5 minutes if not specified
+
+**Password Caching:**
+- 🔐 **Session-based caching** - Password cached until disconnect/timeout
+- 🔒 **Secure storage** - Password only stored in memory during session
+- ⚡ **Auto-reconnect** - Uses cached password for seamless reconnection
+- 🧹 **Auto-clear** - Password cleared on disconnect or timeout
+
+### 🔒 Security Configuration
+```yaml
 table_prefix: "prod_"  # Applied to all table references
 security:
   allowed_all_query_types: false  # Default: SELECT-only
@@ -79,10 +157,32 @@ security:
 
 ## 📖 Usage
 
+### Connection Management
+
+```bash
+# Connect to Snowflake (mandatory before queries)
+winter connect
+
+# Test connection
+winter test-connection
+
+# Show connection info
+winter connection-info
+
+# Disconnect
+winter disconnect
+```
+
+**⚠️ Important Notes:**
+- You must run `winter connect` before executing any queries
+- Connection automatically times out after 5 minutes of inactivity
+- If connection expires, run `winter connect` again to reconnect
+
 ### Query Execution
 
 ```bash
 # Basic query execution (default: 10 rows, 5 columns)
+# Note: Must run 'winter connect' first
 winter execute-query "SELECT * FROM users"
 
 # Interactive table viewer with scrolling

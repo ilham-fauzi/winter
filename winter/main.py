@@ -92,15 +92,49 @@ def connect():
     """Connect to Snowflake."""
     from winter.snowflake import SnowflakeClient
     from winter.utils import load_config
+    from winter.connection_state import ConnectionState
     
     try:
         config = load_config()
         client = SnowflakeClient(config)
+        
+        # Check if password authentication and no password in config
+        if (config.get('auth_method') == 'password' and 
+            config.get('password') is None):
+            # Try to get cached password first
+            connection_state = ConnectionState(config)
+            cached_password = connection_state.get_cached_password()
+            
+            if cached_password:
+                console.print("🔐 Using cached password from previous session")
+                config['password'] = cached_password
+            else:
+                # Prompt for password
+                import getpass
+                password = getpass.getpass("Password: ")
+                config['password'] = password
+        
         client.connect()
         
         # Store client globally for other commands
         import winter.main
         winter.main.current_client = client
+        
+        # Save connection state with password cache
+        connection_state = ConnectionState(config)
+        client_info = client.get_connection_info()
+        
+        # Cache password if it's password authentication and not stored in config
+        password_to_cache = None
+        if (config.get('auth_method') == 'password' and 
+            config.get('password') is not None):
+            password_to_cache = config['password']
+        
+        connection_state.save_connection_state(client_info, password_to_cache)
+        
+        console.print("✅ Connection state saved")
+        if password_to_cache:
+            console.print("🔐 Password cached for this session")
         
     except Exception as e:
         console.print(f"❌ Failed to connect: {e}")
@@ -110,6 +144,8 @@ def connect():
 def disconnect():
     """Disconnect from Snowflake."""
     import winter.main
+    from winter.connection_state import ConnectionState
+    from winter.utils import load_config
     
     if hasattr(winter.main, 'current_client') and winter.main.current_client:
         winter.main.current_client.disconnect()
@@ -117,6 +153,16 @@ def disconnect():
         console.print("✅ Disconnected from Snowflake")
     else:
         console.print("❌ No active connection")
+    
+    # Clear connection state and password cache
+    try:
+        config = load_config()
+        connection_state = ConnectionState(config)
+        connection_state.clear_password_cache()
+        connection_state.clear_connection_state()
+        console.print("✅ Connection state and password cache cleared")
+    except Exception as e:
+        console.print(f"⚠️  Error clearing state: {e}")
 
 
 @main.command()
@@ -293,14 +339,48 @@ def execute_query(query, limit, max_columns, interactive):
         
         console.print(f"🔍 Processed query: {query_info.modified_query[:50]}{'...' if len(query_info.modified_query) > 50 else ''}")
         
-        # Check if we have an active connection, if not create one
+        # Check if we have an active connection, if not show error
         if not hasattr(winter.main, 'current_client') or not winter.main.current_client:
-            console.print("🔌 No active connection. Establishing connection...")
-            client = SnowflakeClient(config)
-            client.connect()
-            winter.main.current_client = client
-        else:
-            client = winter.main.current_client
+            # Try to load connection state
+            from winter.connection_state import ConnectionState
+            connection_state = ConnectionState()
+            
+            if connection_state.is_connected():
+                console.print("🔌 Found saved connection state. Reconnecting...")
+                try:
+                    config = load_config()
+                    
+                    # Use cached password if available
+                    cached_password = connection_state.get_cached_password()
+                    if cached_password and config.get('auth_method') == 'password':
+                        config['password'] = cached_password
+                        console.print("🔐 Using cached password")
+                    
+                    client = SnowflakeClient(config)
+                    client.connect()
+                    winter.main.current_client = client
+                    console.print("✅ Reconnected successfully")
+                except Exception as e:
+                    console.print(f"❌ Failed to reconnect: {e}")
+                    connection_state.clear_connection_state()
+                    console.print("❌ No active connection found!")
+                    console.print("💡 Please run 'winter connect' first to establish connection")
+                    console.print("   winter connect")
+                    return
+            else:
+                console.print("❌ No active connection found!")
+                console.print("💡 Please run 'winter connect' first to establish connection")
+                console.print("   winter connect")
+                return
+        
+        client = winter.main.current_client
+        
+        # Check if connection is still valid (not timed out)
+        if not client._is_connection_valid():
+            console.print("❌ Connection has expired!")
+            console.print("💡 Please run 'winter connect' to reconnect")
+            console.print("   winter connect")
+            return
         
         # Execute query and track execution time
         import time
@@ -604,14 +684,48 @@ def export_query(query, export_format, output, limit):
         
         console.print(f"🔍 Processed query: {query_info.modified_query[:50]}{'...' if len(query_info.modified_query) > 50 else ''}")
         
-        # Check if we have an active connection, if not create one
+        # Check if we have an active connection, if not show error
         if not hasattr(winter.main, 'current_client') or not winter.main.current_client:
-            console.print("🔌 No active connection. Establishing connection...")
-            client = SnowflakeClient(config)
-            client.connect()
-            winter.main.current_client = client
-        else:
-            client = winter.main.current_client
+            # Try to load connection state
+            from winter.connection_state import ConnectionState
+            connection_state = ConnectionState()
+            
+            if connection_state.is_connected():
+                console.print("🔌 Found saved connection state. Reconnecting...")
+                try:
+                    config = load_config()
+                    
+                    # Use cached password if available
+                    cached_password = connection_state.get_cached_password()
+                    if cached_password and config.get('auth_method') == 'password':
+                        config['password'] = cached_password
+                        console.print("🔐 Using cached password")
+                    
+                    client = SnowflakeClient(config)
+                    client.connect()
+                    winter.main.current_client = client
+                    console.print("✅ Reconnected successfully")
+                except Exception as e:
+                    console.print(f"❌ Failed to reconnect: {e}")
+                    connection_state.clear_connection_state()
+                    console.print("❌ No active connection found!")
+                    console.print("💡 Please run 'winter connect' first to establish connection")
+                    console.print("   winter connect")
+                    return
+            else:
+                console.print("❌ No active connection found!")
+                console.print("💡 Please run 'winter connect' first to establish connection")
+                console.print("   winter connect")
+                return
+        
+        client = winter.main.current_client
+        
+        # Check if connection is still valid (not timed out)
+        if not client._is_connection_valid():
+            console.print("❌ Connection has expired!")
+            console.print("💡 Please run 'winter connect' to reconnect")
+            console.print("   winter connect")
+            return
         
         # Execute query
         columns, results = client.execute_query_with_columns(query_info.modified_query)
@@ -678,14 +792,48 @@ def export_all(query, formats, output, limit):
         
         console.print(f"🔍 Processed query: {query_info.modified_query[:50]}{'...' if len(query_info.modified_query) > 50 else ''}")
         
-        # Check if we have an active connection, if not create one
+        # Check if we have an active connection, if not show error
         if not hasattr(winter.main, 'current_client') or not winter.main.current_client:
-            console.print("🔌 No active connection. Establishing connection...")
-            client = SnowflakeClient(config)
-            client.connect()
-            winter.main.current_client = client
-        else:
-            client = winter.main.current_client
+            # Try to load connection state
+            from winter.connection_state import ConnectionState
+            connection_state = ConnectionState()
+            
+            if connection_state.is_connected():
+                console.print("🔌 Found saved connection state. Reconnecting...")
+                try:
+                    config = load_config()
+                    
+                    # Use cached password if available
+                    cached_password = connection_state.get_cached_password()
+                    if cached_password and config.get('auth_method') == 'password':
+                        config['password'] = cached_password
+                        console.print("🔐 Using cached password")
+                    
+                    client = SnowflakeClient(config)
+                    client.connect()
+                    winter.main.current_client = client
+                    console.print("✅ Reconnected successfully")
+                except Exception as e:
+                    console.print(f"❌ Failed to reconnect: {e}")
+                    connection_state.clear_connection_state()
+                    console.print("❌ No active connection found!")
+                    console.print("💡 Please run 'winter connect' first to establish connection")
+                    console.print("   winter connect")
+                    return
+            else:
+                console.print("❌ No active connection found!")
+                console.print("💡 Please run 'winter connect' first to establish connection")
+                console.print("   winter connect")
+                return
+        
+        client = winter.main.current_client
+        
+        # Check if connection is still valid (not timed out)
+        if not client._is_connection_valid():
+            console.print("❌ Connection has expired!")
+            console.print("💡 Please run 'winter connect' to reconnect")
+            console.print("   winter connect")
+            return
         
         # Execute query
         columns, results = client.execute_query_with_columns(query_info.modified_query)
