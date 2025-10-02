@@ -68,11 +68,24 @@ pip install -e .
 
 ### From GitHub Repository
 ```bash
-# Install directly from GitHub
+# Install directly from GitHub (after repository is created)
 pip install git+https://github.com/ilham/winter.git
 
 # Install specific version/tag
 pip install git+https://github.com/ilham/winter.git@v1.0.0
+```
+
+### From Local Development
+```bash
+# Clone or download the project
+git clone https://github.com/ilham/winter.git
+cd winter
+
+# Install in development mode
+pip install -e .
+
+# Or install directly from local directory
+pip install -e /path/to/winter
 ```
 
 ### Development Installation
@@ -493,11 +506,27 @@ winter execute-query "SELECT * FROM large_table" --interactive
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
+1. Fork the repository: [https://github.com/ilham/winter](https://github.com/ilham/winter)
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
 4. Add tests for new functionality
 5. Submit a pull request
+
+### Development Setup
+```bash
+# Clone the repository
+git clone https://github.com/ilham/winter.git
+cd winter
+
+# Install in development mode
+pip install -e .
+
+# Install development dependencies
+pip install -r requirements-dev.txt
+
+# Run tests
+python -m pytest tests/
+```
 
 ## 📄 License
 
@@ -505,6 +534,7 @@ MIT License - see LICENSE file for details
 
 ## 🆘 Support
 
+- **Repository**: [https://github.com/ilham/winter](https://github.com/ilham/winter)
 - **Issues**: [GitHub Issues](https://github.com/ilham/winter/issues)
 - **Documentation**: [Wiki](https://github.com/ilham/winter/wiki)
 - **Discussions**: [GitHub Discussions](https://github.com/ilham/winter/discussions)
@@ -519,5 +549,12 @@ MIT License - see LICENSE file for details
 - [ ] Plugin system for extensions
 
 ---
+
+## 📍 Repository Information
+
+- **GitHub Repository**: [https://github.com/ilham/winter](https://github.com/ilham/winter)
+- **Package Name**: `winter`
+- **PyPI**: [https://pypi.org/project/winter/](https://pypi.org/project/winter/)
+- **Documentation**: [https://github.com/ilham/winter/wiki](https://github.com/ilham/winter/wiki)
 
 **Winter** - Making Snowflake terminal access powerful and intuitive! ❄️
