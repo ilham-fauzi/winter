@@ -126,12 +126,9 @@ class InteractiveTableViewer:
                                 max_rows: int = 20, max_cols: int = 10):
         """Display interactive table with scrolling controls."""
         
-        # Store current data for mouse events
+        # Store current data for basic functionality
         self.current_results = results
         self.current_columns = columns
-        
-        # Start mouse listener
-        self._start_mouse_listener()
         
         # Limit data
         display_results = results[:max_rows]
