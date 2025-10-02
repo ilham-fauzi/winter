@@ -67,12 +67,35 @@ pip install -e .
 ```
 
 ### From GitHub Repository
+
+#### **macOS/Windows:**
 ```bash
 # Install directly from GitHub
-pip install git+https://github.com/ilham/winter.git
+pip install git+https://github.com/ilham-fauzi/winter.git
 
 # Install specific version/tag
-pip install git+https://github.com/ilham/winter.git@v1.0.0
+pip install git+https://github.com/ilham-fauzi/winter.git@v1.0.0
+```
+
+#### **Linux (Ubuntu/Debian):**
+```bash
+# Option 1: Using pipx (Recommended)
+sudo apt install pipx
+pipx install git+https://github.com/ilham-fauzi/winter.git
+
+# Option 2: Using virtual environment
+python3 -m venv winter-env
+source winter-env/bin/activate
+pip install git+https://github.com/ilham-fauzi/winter.git
+
+# Option 3: User installation
+pip3 install --user git+https://github.com/ilham-fauzi/winter.git
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Option 4: If pyarrow build fails, install dependencies first
+sudo apt install cmake build-essential python3-pyarrow python3-pandas
+pip3 install --user git+https://github.com/ilham-fauzi/winter.git
 ```
 
 ### Development Installation

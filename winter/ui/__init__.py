@@ -10,6 +10,7 @@ from rich.text import Text
 from typing import List, Any, Tuple
 import time
 from winter.formatters import DataFormatter, ColumnAnalyzer
+from winter.header_formatter import create_smart_header_formatter
 
 # Try to import keyboard for arrow key support
 try:
@@ -113,6 +114,7 @@ class InteractiveTableViewer:
         self.cols_per_page = 5  # Number of columns per page
         self.formatter = DataFormatter()
         self.analyzer = ColumnAnalyzer()
+        self.header_formatter = create_smart_header_formatter()
         self.column_info = {}  # Store column analysis results
     
     def display_interactive_table(self, results: List[tuple], columns: List[str], 
@@ -281,18 +283,20 @@ class InteractiveTableViewer:
             col_info = self.column_info.get(col_name, {})
             col_type = col_info.get('type', 'text')
             
-            # Use clean column name without icons, truncate if too long
-            header_text = col_name
-            if len(header_text) > 20:
-                header_text = header_text[:17] + "..."
+            # Format header with smart scaling
+            formatted_headers = self.header_formatter.format_headers_smart([col_name], max_width=20)
+            display_header, full_header = formatted_headers[0]
             
-            # Use consistent column width to prevent "heaping"
+            # Use dynamic column width based on header length
+            header_length = len(col_name)
+            column_width = max(20, min(header_length + 2, 40))  # Dynamic width
+            
             table.add_column(
-                header_text,
+                display_header,
                 overflow="fold",
-                min_width=20,  # Consistent minimum width
-                max_width=20,  # Consistent maximum width
-                no_wrap=True  # Prevent header wrapping
+                min_width=column_width,  # Dynamic minimum width
+                max_width=column_width,  # Dynamic maximum width
+                no_wrap=False  # Allow wrapping for very long headers
             )
         
         # Add visible rows

@@ -15,7 +15,7 @@ class ConnectionState:
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         self.state_file = Path.home() / '.winter' / 'connection_state.json'
         self.config = config or {}
-        self.timeout_minutes = self.config.get('connection_timeout', 300)  # Default 5 minutes
+        self.timeout_minutes = self.config.get('connection_timeout', 5)  # Default 5 minutes, not 300
     
     def save_connection_state(self, client_info: Dict[str, Any], password: Optional[str] = None):
         """Save connection state to file."""
@@ -65,7 +65,9 @@ class ConnectionState:
         state = self.load_connection_state()
         if state:
             state['last_activity'] = time.time()
-            self.save_connection_state(state['client_info'])
+            # Preserve cached password when updating activity
+            cached_password = state.get('cached_password')
+            self.save_connection_state(state['client_info'], password=cached_password)
     
     def clear_connection_state(self):
         """Clear connection state."""
