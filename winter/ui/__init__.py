@@ -9,8 +9,7 @@ from rich.panel import Panel
 from rich.text import Text
 from typing import List, Any, Tuple
 import time
-import pyperclip
-import threading
+# Removed pyperclip and threading imports - not needed for basic table viewing
 from winter.formatters import DataFormatter, ColumnAnalyzer
 from winter.header_formatter import create_smart_header_formatter
 
@@ -119,7 +118,7 @@ class InteractiveTableViewer:
         self.header_formatter = create_smart_header_formatter()
         self.column_info = {}  # Store column analysis results
         
-        # Store current data for copy functionality
+        # Store current data for basic functionality
         self.current_results = None
         self.current_columns = None
     
@@ -157,8 +156,6 @@ class InteractiveTableViewer:
             self.console.print("  ←/→ : Scroll horizontally OR pagination (smart navigation)")
             self.console.print("  ↑/↓ : Page navigation (previous/next page)")
             self.console.print("  i   : Show column information")
-            self.console.print("  c   : Copy current cell value (truncated)")
-            self.console.print("  space : Copy current cell value (full)")
             self.console.print("  q   : Quit")
             self.console.print("  h   : Show help")
             self.console.print("\n💡 Use arrow keys or WASD for navigation (no Enter needed!)")
@@ -195,21 +192,21 @@ class InteractiveTableViewer:
                 
                 # Get user input
                 try:
-                    self.console.print("\nPress arrow keys or WASD to navigate (or 'q' to quit, 'i' for info, 'h' for help, 'c' to copy cell value, 'space' for quick copy):")
+                    self.console.print("\nPress arrow keys or WASD to navigate (or 'q' to quit, 'i' for info, 'h' for help):")
                     key = get_arrow_key()
                     
                     # Handle input
                     if key in ['u', 'd', 'l', 'r']:  # Arrow keys already converted
                         user_input = key
-                    elif key.lower() in ['w', 'a', 's', 'd']:  # WASD keys
+                    elif key.lower() in ['w', 'a', 's']:  # WASD keys (excluding 'd' for detail)
                         if key.lower() == 'w':  # W = up
                             user_input = 'u'
                         elif key.lower() == 's':  # S = down
                             user_input = 'd'
                         elif key.lower() == 'a':  # A = left
                             user_input = 'l'
-                        elif key.lower() == 'd':  # D = right
-                            user_input = 'r'
+                    elif key.lower() == 'd':  # D = detail view (not navigation)
+                        user_input = 'd'
                     elif key.lower() in ['q', 'i', 'h', 'c'] or key == ' ':
                         user_input = key.lower() if key != ' ' else 'space'
                     else:
@@ -269,18 +266,11 @@ class InteractiveTableViewer:
                     self._show_column_info(display_cols)
                 elif user_input == 'h':
                     self._show_help()
-                elif user_input == 'c':
-                    self._copy_cell_value(results, columns)
-                elif user_input == 'space':
-                    self._copy_cell_value(results, columns, show_truncated=False)
                 else:
                     self.console.print(f"❓ Unknown command: '{user_input}'. Use h for help.")
                 
         except KeyboardInterrupt:
             pass
-        finally:
-            # Stop mouse listener
-            self._stop_mouse_listener()
         
         self.console.print("\n✅ Exited interactive table viewer")
     
@@ -351,77 +341,6 @@ class InteractiveTableViewer:
         table = self._create_scrolled_table(results, columns)
         self.console.print(table)
     
-    def _copy_cell_value(self, results: List[tuple], columns: List[str], show_truncated: bool = True):
-        """Copy cell value to clipboard."""
-        try:
-            # Get current visible cell position
-            current_row = self.scroll_y
-            current_col = self.scroll_x
-            
-            # Check if position is valid
-            if current_row >= len(results) or current_col >= len(columns):
-                self.console.print("❌ Invalid cell position")
-                return
-            
-            # Get the cell value
-            row = results[current_row]
-            if current_col >= len(row):
-                self.console.print("❌ Invalid column position")
-                return
-            
-            cell_value = row[current_col]
-            
-            # Convert to string and copy to clipboard
-            value_str = str(cell_value) if cell_value is not None else ""
-            
-            # Try to copy to clipboard
-            try:
-                pyperclip.copy(value_str)
-                if show_truncated:
-                    display_value = value_str[:50] + ('...' if len(value_str) > 50 else '')
-                    self.console.print(f"📋 Copied to clipboard: {display_value}")
-                else:
-                    self.console.print(f"📋 Copied full value to clipboard ({len(value_str)} chars)")
-            except Exception as e:
-                # Fallback: display the value for manual copy
-                self.console.print(f"📋 Value to copy: {value_str}")
-                self.console.print("⚠️  Clipboard not available. Please copy manually.")
-                
-        except Exception as e:
-            self.console.print(f"❌ Error copying value: {e}")
-    
-    def _start_mouse_listener(self):
-        """Start mouse listener for double-click detection."""
-        try:
-            # Note: Mouse support requires accessibility permissions on macOS
-            # For now, we'll rely on keyboard shortcuts (c and space)
-            self.console.print("🖱️  Mouse support: Use 'c' or 'space' to copy cell values")
-        except Exception as e:
-            self.console.print(f"⚠️  Mouse support not available: {e}")
-    
-    def _stop_mouse_listener(self):
-        """Stop mouse listener."""
-        # Mouse listener cleanup (no-op for now)
-        pass
-    
-    def _on_mouse_click(self, x, y, button, pressed):
-        """Handle mouse click events (currently unused)."""
-        # This method is kept for future mouse support implementation
-        # Currently, we rely on keyboard shortcuts for copy functionality
-        pass
-    
-    def _handle_double_click(self):
-        """Handle double-click event - copy current cell value."""
-        if self.current_results and self.current_columns:
-            # Copy full value without truncation
-            self._copy_cell_value(self.current_results, self.current_columns, show_truncated=False)
-    
-    def _handle_mouse_click(self, x, y):
-        """Handle mouse click event from terminal (currently unused)."""
-        # This method is kept for future mouse support implementation
-        # Currently, we rely on keyboard shortcuts for copy functionality
-        pass
-
     def _show_help(self):
         """Show help information."""
         help_text = """
@@ -440,14 +359,11 @@ Smart Pagination:
   
 Actions:
   i       : Show column information and data types
-  c       : Copy current cell value to clipboard (truncated display)
-  space   : Copy current cell value (full value, no truncation)
   q       : Quit interactive mode
   h       : Show this help
 
 Tips:
   - Use arrow keys or WASD to navigate large tables (no Enter needed!)
-  - Press 'c' for copy with truncated display, 'space' for full value copy
   - Data is color-coded by type for better readability
   - Use 'i' to see detailed column analysis with data types
   - ↑/↓ keys navigate by pages (10 rows at a time) for faster browsing
@@ -462,7 +378,6 @@ Tips:
         )
         
         self.console.print(help_panel)
-        self.console.input("Press Enter to continue...")
     
     def _show_column_info(self, columns: List[str]):
         """Show detailed information about columns."""
@@ -494,4 +409,3 @@ Tips:
         )
         
         self.console.print(info_panel)
-        self.console.input("Press Enter to continue...")

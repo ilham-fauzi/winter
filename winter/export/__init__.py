@@ -11,8 +11,19 @@ from typing import List, Dict, Any, Optional, Union
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 import pandas as pd
+from decimal import Decimal
 
 console = Console()
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """Custom JSON encoder to handle Decimal and datetime objects."""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        elif hasattr(obj, 'isoformat'):  # Handle datetime objects
+            return obj.isoformat()
+        return super(DecimalEncoder, self).default(obj)
 
 
 class DataExporter:
@@ -77,8 +88,12 @@ class DataExporter:
                     row_dict = {}
                     for i, col in enumerate(columns):
                         if i < len(row):
-                            # Convert None to null for JSON
+                            # Convert None to null for JSON, and handle Decimal/datetime objects
                             value = row[i] if row[i] is not None else None
+                            if isinstance(value, Decimal):
+                                value = float(value)
+                            elif hasattr(value, 'isoformat'):  # Handle datetime objects
+                                value = value.isoformat()
                             row_dict[col] = value
                         else:
                             row_dict[col] = None
@@ -98,9 +113,9 @@ class DataExporter:
                 # Write JSON file
                 with open(file_path, 'w', encoding='utf-8') as jsonfile:
                     if pretty:
-                        json.dump(export_data, jsonfile, indent=2, ensure_ascii=False)
+                        json.dump(export_data, jsonfile, indent=2, ensure_ascii=False, cls=DecimalEncoder)
                     else:
-                        json.dump(export_data, jsonfile, ensure_ascii=False)
+                        json.dump(export_data, jsonfile, ensure_ascii=False, cls=DecimalEncoder)
                 
                 progress.update(task, description="✅ JSON export completed")
                 return True
