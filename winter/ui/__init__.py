@@ -11,7 +11,6 @@ from typing import List, Any, Tuple
 import time
 import pyperclip
 import threading
-from pynput import mouse
 from winter.formatters import DataFormatter, ColumnAnalyzer
 from winter.header_formatter import create_smart_header_formatter
 
@@ -120,11 +119,7 @@ class InteractiveTableViewer:
         self.header_formatter = create_smart_header_formatter()
         self.column_info = {}  # Store column analysis results
         
-        # Mouse support
-        self.mouse_listener = None
-        self.last_click_time = 0
-        self.click_count = 0
-        self.double_click_threshold = 0.5  # 500ms for double click
+        # Store current data for copy functionality
         self.current_results = None
         self.current_columns = None
     
@@ -166,7 +161,6 @@ class InteractiveTableViewer:
             self.console.print("  space : Copy current cell value (full)")
             self.console.print("  q   : Quit")
             self.console.print("  h   : Show help")
-            self.console.print("  🖱️  : Double-click to copy current cell value")
             self.console.print("\n💡 Use arrow keys or WASD for navigation (no Enter needed!)")
             self.console.print("🔄 Smart pagination: → at last columns = next page, ← at first columns = previous page")
             self.console.print("📄 Page navigation: ↑/↓ keys move by pages (10 rows at a time)")
@@ -202,29 +196,7 @@ class InteractiveTableViewer:
                 # Get user input
                 try:
                     self.console.print("\nPress arrow keys or WASD to navigate (or 'q' to quit, 'i' for info, 'h' for help, 'c' to copy cell value, 'space' for quick copy):")
-                    self.console.print("🖱️  Or double-click anywhere to copy current cell value")
                     key = get_arrow_key()
-                    
-                    # Check for mouse events (CSI sequences)
-                    if key == '\x1b':  # ESC sequence
-                        # Read more characters to check for mouse events
-                        import sys
-                        import select
-                        if select.select([sys.stdin], [], [], 0.1)[0]:  # Check if more data available
-                            additional = sys.stdin.read(2)  # Read 2 more characters
-                            if additional == '[M':  # Mouse event
-                                # Read mouse event data
-                                mouse_data = sys.stdin.read(3)
-                                if len(mouse_data) == 3:
-                                    # Parse mouse event
-                                    button = ord(mouse_data[0]) - 32
-                                    x = ord(mouse_data[1]) - 32
-                                    y = ord(mouse_data[2]) - 32
-                                    
-                                    # Check for double-click (button 0 = left click)
-                                    if button == 0:  # Left click
-                                        self._handle_mouse_click(x, y)
-                                    continue
                     
                     # Handle input
                     if key in ['u', 'd', 'l', 'r']:  # Arrow keys already converted
@@ -421,45 +393,22 @@ class InteractiveTableViewer:
     def _start_mouse_listener(self):
         """Start mouse listener for double-click detection."""
         try:
-            # Enable terminal mouse support
-            print("\033[?1000h", end="")  # Enable mouse tracking
-            print("🖱️  Mouse support enabled - double-click to copy current cell value")
+            # Note: Mouse support requires accessibility permissions on macOS
+            # For now, we'll rely on keyboard shortcuts (c and space)
+            self.console.print("🖱️  Mouse support: Use 'c' or 'space' to copy cell values")
         except Exception as e:
-            print(f"⚠️  Mouse support not available: {e}")
             self.console.print(f"⚠️  Mouse support not available: {e}")
     
     def _stop_mouse_listener(self):
         """Stop mouse listener."""
-        try:
-            # Disable terminal mouse support
-            print("\033[?1000l", end="")  # Disable mouse tracking
-        except Exception:
-            pass
+        # Mouse listener cleanup (no-op for now)
+        pass
     
     def _on_mouse_click(self, x, y, button, pressed):
-        """Handle mouse click events."""
-        if not pressed:  # Only handle mouse release
-            return
-        
-        current_time = time.time()
-        
-        # Debug logging
-        print(f"🖱️  Mouse click detected: x={x}, y={y}, button={button}, time={current_time}")
-        
-        # Check for double click
-        if current_time - self.last_click_time < self.double_click_threshold:
-            self.click_count += 1
-            print(f"🖱️  Click count: {self.click_count}")
-            if self.click_count >= 2:
-                # Double click detected - copy current cell value
-                print("🖱️  Double click detected! Copying value...")
-                self._handle_double_click()
-                self.click_count = 0
-        else:
-            self.click_count = 1
-            print(f"🖱️  First click, resetting count")
-        
-        self.last_click_time = current_time
+        """Handle mouse click events (currently unused)."""
+        # This method is kept for future mouse support implementation
+        # Currently, we rely on keyboard shortcuts for copy functionality
+        pass
     
     def _handle_double_click(self):
         """Handle double-click event - copy current cell value."""
@@ -468,21 +417,10 @@ class InteractiveTableViewer:
             self._copy_cell_value(self.current_results, self.current_columns, show_truncated=False)
     
     def _handle_mouse_click(self, x, y):
-        """Handle mouse click event from terminal."""
-        current_time = time.time()
-        
-        # Check for double click
-        if current_time - self.last_click_time < self.double_click_threshold:
-            self.click_count += 1
-            if self.click_count >= 2:
-                # Double click detected - copy current cell value
-                self.console.print("🖱️  Double-click detected! Copying value...")
-                self._handle_double_click()
-                self.click_count = 0
-        else:
-            self.click_count = 1
-        
-        self.last_click_time = current_time
+        """Handle mouse click event from terminal (currently unused)."""
+        # This method is kept for future mouse support implementation
+        # Currently, we rely on keyboard shortcuts for copy functionality
+        pass
 
     def _show_help(self):
         """Show help information."""
@@ -507,13 +445,9 @@ Actions:
   q       : Quit interactive mode
   h       : Show this help
 
-Mouse Support:
-  Double-click: Copy current cell value (full value, no truncation)
-  Note: Mouse support requires accessibility permissions on macOS
-
 Tips:
   - Use arrow keys or WASD to navigate large tables (no Enter needed!)
-  - Double-click anywhere to copy the current cell value
+  - Press 'c' for copy with truncated display, 'space' for full value copy
   - Data is color-coded by type for better readability
   - Use 'i' to see detailed column analysis with data types
   - ↑/↓ keys navigate by pages (10 rows at a time) for faster browsing
