@@ -1,6 +1,10 @@
 # Winter - Snowflake Terminal Client
 
-❄️ **Winter** is a powerful q
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue?logo=github)](https://github.com/ilham/winter)
+[![Python](https://img.shields.io/badge/Python-3.8+-green?logo=python)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+
+❄️ **Winter** is a powerful terminal client for Snowflake with advanced table scrolling, prefix support, security controls, and comprehensive query management.
 
 ## ✨ Features
 
@@ -50,11 +54,25 @@ winter manage-favorites
 
 ## 📦 Installation
 
+### From PyPI (Recommended)
+```bash
+pip install winter
+```
+
 ### From Source
 ```bash
-git clone https://github.com/your-org/winter.git
+git clone https://github.com/ilham/winter.git
 cd winter
 pip install -e .
+```
+
+### From GitHub Repository
+```bash
+# Install directly from GitHub
+pip install git+https://github.com/ilham/winter.git
+
+# Install specific version/tag
+pip install git+https://github.com/ilham/winter.git@v1.0.0
 ```
 
 ### Development Installation
@@ -487,9 +505,9 @@ MIT License - see LICENSE file for details
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/winter/issues)
-- **Documentation**: [Wiki](https://github.com/your-org/winter/wiki)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/winter/discussions)
+- **Issues**: [GitHub Issues](https://github.com/ilham/winter/issues)
+- **Documentation**: [Wiki](https://github.com/ilham/winter/wiki)
+- **Discussions**: [GitHub Discussions](https://github.com/ilham/winter/discussions)
 
 ## 🎯 Roadmap
 
