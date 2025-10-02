@@ -9,7 +9,11 @@ from rich.panel import Panel
 from rich.text import Text
 from typing import List, Any, Tuple
 import time
+import pyperclip
+import threading
+from pynput import mouse
 from winter.formatters import DataFormatter, ColumnAnalyzer
+from winter.header_formatter import create_smart_header_formatter
 
 # Try to import keyboard for arrow key support
 try:
@@ -113,47 +117,66 @@ class InteractiveTableViewer:
         self.cols_per_page = 5  # Number of columns per page
         self.formatter = DataFormatter()
         self.analyzer = ColumnAnalyzer()
+        self.header_formatter = create_smart_header_formatter()
         self.column_info = {}  # Store column analysis results
+        
+        # Mouse support
+        self.mouse_listener = None
+        self.last_click_time = 0
+        self.click_count = 0
+        self.double_click_threshold = 0.5  # 500ms for double click
+        self.current_results = None
+        self.current_columns = None
     
     def display_interactive_table(self, results: List[tuple], columns: List[str], 
                                 max_rows: int = 20, max_cols: int = 10):
         """Display interactive table with scrolling controls."""
         
+        # Store current data for mouse events
+        self.current_results = results
+        self.current_columns = columns
+        
+        # Start mouse listener
+        self._start_mouse_listener()
+        
         # Limit data
         display_results = results[:max_rows]
         display_cols = columns[:max_cols]
         
-        # Analyze columns for formatting (analyze ALL columns, not just limited ones)
-        self.console.print("🔍 Analyzing column data types...")
-        self.column_info = {}
-        for i, col in enumerate(columns):  # Use full columns list
-            column_values = [row[i] for row in results if i < len(row)]
-            self.column_info[col] = self.analyzer.analyze_column(col, column_values)
-        
-        # Calculate total pages (use original counts, not limited counts)
-        total_rows = len(results)  # Use original results count
-        total_cols = len(columns)  # Use original columns count
-        max_row_page = max(0, total_rows - self.page_size)
-        max_col_page = max(0, total_cols - self.cols_per_page)
-        
-        # Show controls
-        self.console.print("\n🎮 Interactive Table Controls:")
-        self.console.print("  ←/→ : Scroll horizontally OR pagination (smart navigation)")
-        self.console.print("  ↑/↓ : Page navigation (previous/next page)")
-        self.console.print("  i   : Show column information")
-        self.console.print("  q   : Quit")
-        self.console.print("  h   : Show help")
-        self.console.print("\n💡 Use arrow keys or WASD for navigation (no Enter needed!)")
-        self.console.print("🔄 Smart pagination: → at last columns = next page, ← at first columns = previous page")
-        self.console.print("📄 Page navigation: ↑/↓ keys move by pages (10 rows at a time)")
-        
-        # Check if we have more data than can be displayed
-        if total_rows <= self.page_size and total_cols <= self.cols_per_page:
-            self.console.print("\n💡 All data fits in one view - no scrolling needed!")
-            self.console.print("   Use 'i' to see column information or 'q' to quit")
-        
-        # Interactive loop
         try:
+            # Analyze columns for formatting (analyze ALL columns, not just limited ones)
+            self.console.print("🔍 Analyzing column data types...")
+            self.column_info = {}
+            for i, col in enumerate(columns):  # Use full columns list
+                column_values = [row[i] for row in results if i < len(row)]
+                self.column_info[col] = self.analyzer.analyze_column(col, column_values)
+        
+            # Calculate total pages (use original counts, not limited counts)
+            total_rows = len(results)  # Use original results count
+            total_cols = len(columns)  # Use original columns count
+            max_row_page = max(0, total_rows - self.page_size)
+            max_col_page = max(0, total_cols - self.cols_per_page)
+            
+            # Show controls
+            self.console.print("\n🎮 Interactive Table Controls:")
+            self.console.print("  ←/→ : Scroll horizontally OR pagination (smart navigation)")
+            self.console.print("  ↑/↓ : Page navigation (previous/next page)")
+            self.console.print("  i   : Show column information")
+            self.console.print("  c   : Copy current cell value (truncated)")
+            self.console.print("  space : Copy current cell value (full)")
+            self.console.print("  q   : Quit")
+            self.console.print("  h   : Show help")
+            self.console.print("  🖱️  : Double-click to copy current cell value")
+            self.console.print("\n💡 Use arrow keys or WASD for navigation (no Enter needed!)")
+            self.console.print("🔄 Smart pagination: → at last columns = next page, ← at first columns = previous page")
+            self.console.print("📄 Page navigation: ↑/↓ keys move by pages (10 rows at a time)")
+            
+            # Check if we have more data than can be displayed
+            if total_rows <= self.page_size and total_cols <= self.cols_per_page:
+                self.console.print("\n💡 All data fits in one view - no scrolling needed!")
+                self.console.print("   Use 'i' to see column information or 'q' to quit")
+            
+            # Interactive loop
             while True:
                 # Create table with current scroll position
                 table = self._create_scrolled_table(results, columns)
@@ -178,8 +201,30 @@ class InteractiveTableViewer:
                 
                 # Get user input
                 try:
-                    self.console.print("\nPress arrow keys or WASD to navigate (or 'q' to quit, 'i' for info, 'h' for help):")
+                    self.console.print("\nPress arrow keys or WASD to navigate (or 'q' to quit, 'i' for info, 'h' for help, 'c' to copy cell value, 'space' for quick copy):")
+                    self.console.print("🖱️  Or double-click anywhere to copy current cell value")
                     key = get_arrow_key()
+                    
+                    # Check for mouse events (CSI sequences)
+                    if key == '\x1b':  # ESC sequence
+                        # Read more characters to check for mouse events
+                        import sys
+                        import select
+                        if select.select([sys.stdin], [], [], 0.1)[0]:  # Check if more data available
+                            additional = sys.stdin.read(2)  # Read 2 more characters
+                            if additional == '[M':  # Mouse event
+                                # Read mouse event data
+                                mouse_data = sys.stdin.read(3)
+                                if len(mouse_data) == 3:
+                                    # Parse mouse event
+                                    button = ord(mouse_data[0]) - 32
+                                    x = ord(mouse_data[1]) - 32
+                                    y = ord(mouse_data[2]) - 32
+                                    
+                                    # Check for double-click (button 0 = left click)
+                                    if button == 0:  # Left click
+                                        self._handle_mouse_click(x, y)
+                                    continue
                     
                     # Handle input
                     if key in ['u', 'd', 'l', 'r']:  # Arrow keys already converted
@@ -193,8 +238,8 @@ class InteractiveTableViewer:
                             user_input = 'l'
                         elif key.lower() == 'd':  # D = right
                             user_input = 'r'
-                    elif key.lower() in ['q', 'i', 'h']:
-                        user_input = key.lower()
+                    elif key.lower() in ['q', 'i', 'h', 'c'] or key == ' ':
+                        user_input = key.lower() if key != ' ' else 'space'
                     else:
                         user_input = ''
                 except (EOFError, KeyboardInterrupt):
@@ -252,11 +297,18 @@ class InteractiveTableViewer:
                     self._show_column_info(display_cols)
                 elif user_input == 'h':
                     self._show_help()
+                elif user_input == 'c':
+                    self._copy_cell_value(results, columns)
+                elif user_input == 'space':
+                    self._copy_cell_value(results, columns, show_truncated=False)
                 else:
                     self.console.print(f"❓ Unknown command: '{user_input}'. Use h for help.")
                 
         except KeyboardInterrupt:
             pass
+        finally:
+            # Stop mouse listener
+            self._stop_mouse_listener()
         
         self.console.print("\n✅ Exited interactive table viewer")
     
@@ -281,18 +333,20 @@ class InteractiveTableViewer:
             col_info = self.column_info.get(col_name, {})
             col_type = col_info.get('type', 'text')
             
-            # Use clean column name without icons, truncate if too long
-            header_text = col_name
-            if len(header_text) > 20:
-                header_text = header_text[:17] + "..."
+            # Format header with smart scaling
+            formatted_headers = self.header_formatter.format_headers_smart([col_name], max_width=20)
+            display_header, full_header = formatted_headers[0]
             
-            # Use consistent column width to prevent "heaping"
+            # Use dynamic column width based on header length
+            header_length = len(col_name)
+            column_width = max(20, min(header_length + 2, 40))  # Dynamic width
+            
             table.add_column(
-                header_text,
+                display_header,
                 overflow="fold",
-                min_width=20,  # Consistent minimum width
-                max_width=20,  # Consistent maximum width
-                no_wrap=True  # Prevent header wrapping
+                min_width=column_width,  # Dynamic minimum width
+                max_width=column_width,  # Dynamic maximum width
+                no_wrap=False  # Allow wrapping for very long headers
             )
         
         # Add visible rows
@@ -325,6 +379,111 @@ class InteractiveTableViewer:
         table = self._create_scrolled_table(results, columns)
         self.console.print(table)
     
+    def _copy_cell_value(self, results: List[tuple], columns: List[str], show_truncated: bool = True):
+        """Copy cell value to clipboard."""
+        try:
+            # Get current visible cell position
+            current_row = self.scroll_y
+            current_col = self.scroll_x
+            
+            # Check if position is valid
+            if current_row >= len(results) or current_col >= len(columns):
+                self.console.print("❌ Invalid cell position")
+                return
+            
+            # Get the cell value
+            row = results[current_row]
+            if current_col >= len(row):
+                self.console.print("❌ Invalid column position")
+                return
+            
+            cell_value = row[current_col]
+            
+            # Convert to string and copy to clipboard
+            value_str = str(cell_value) if cell_value is not None else ""
+            
+            # Try to copy to clipboard
+            try:
+                pyperclip.copy(value_str)
+                if show_truncated:
+                    display_value = value_str[:50] + ('...' if len(value_str) > 50 else '')
+                    self.console.print(f"📋 Copied to clipboard: {display_value}")
+                else:
+                    self.console.print(f"📋 Copied full value to clipboard ({len(value_str)} chars)")
+            except Exception as e:
+                # Fallback: display the value for manual copy
+                self.console.print(f"📋 Value to copy: {value_str}")
+                self.console.print("⚠️  Clipboard not available. Please copy manually.")
+                
+        except Exception as e:
+            self.console.print(f"❌ Error copying value: {e}")
+    
+    def _start_mouse_listener(self):
+        """Start mouse listener for double-click detection."""
+        try:
+            # Enable terminal mouse support
+            print("\033[?1000h", end="")  # Enable mouse tracking
+            print("🖱️  Mouse support enabled - double-click to copy current cell value")
+        except Exception as e:
+            print(f"⚠️  Mouse support not available: {e}")
+            self.console.print(f"⚠️  Mouse support not available: {e}")
+    
+    def _stop_mouse_listener(self):
+        """Stop mouse listener."""
+        try:
+            # Disable terminal mouse support
+            print("\033[?1000l", end="")  # Disable mouse tracking
+        except Exception:
+            pass
+    
+    def _on_mouse_click(self, x, y, button, pressed):
+        """Handle mouse click events."""
+        if not pressed:  # Only handle mouse release
+            return
+        
+        current_time = time.time()
+        
+        # Debug logging
+        print(f"🖱️  Mouse click detected: x={x}, y={y}, button={button}, time={current_time}")
+        
+        # Check for double click
+        if current_time - self.last_click_time < self.double_click_threshold:
+            self.click_count += 1
+            print(f"🖱️  Click count: {self.click_count}")
+            if self.click_count >= 2:
+                # Double click detected - copy current cell value
+                print("🖱️  Double click detected! Copying value...")
+                self._handle_double_click()
+                self.click_count = 0
+        else:
+            self.click_count = 1
+            print(f"🖱️  First click, resetting count")
+        
+        self.last_click_time = current_time
+    
+    def _handle_double_click(self):
+        """Handle double-click event - copy current cell value."""
+        if self.current_results and self.current_columns:
+            # Copy full value without truncation
+            self._copy_cell_value(self.current_results, self.current_columns, show_truncated=False)
+    
+    def _handle_mouse_click(self, x, y):
+        """Handle mouse click event from terminal."""
+        current_time = time.time()
+        
+        # Check for double click
+        if current_time - self.last_click_time < self.double_click_threshold:
+            self.click_count += 1
+            if self.click_count >= 2:
+                # Double click detected - copy current cell value
+                self.console.print("🖱️  Double-click detected! Copying value...")
+                self._handle_double_click()
+                self.click_count = 0
+        else:
+            self.click_count = 1
+        
+        self.last_click_time = current_time
+
     def _show_help(self):
         """Show help information."""
         help_text = """
@@ -343,11 +502,18 @@ Smart Pagination:
   
 Actions:
   i       : Show column information and data types
+  c       : Copy current cell value to clipboard (truncated display)
+  space   : Copy current cell value (full value, no truncation)
   q       : Quit interactive mode
   h       : Show this help
-  
+
+Mouse Support:
+  Double-click: Copy current cell value (full value, no truncation)
+  Note: Mouse support requires accessibility permissions on macOS
+
 Tips:
   - Use arrow keys or WASD to navigate large tables (no Enter needed!)
+  - Double-click anywhere to copy the current cell value
   - Data is color-coded by type for better readability
   - Use 'i' to see detailed column analysis with data types
   - ↑/↓ keys navigate by pages (10 rows at a time) for faster browsing

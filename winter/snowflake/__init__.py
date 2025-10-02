@@ -26,7 +26,7 @@ class SnowflakeClient:
         self.connection_pool = []
         self.max_pool_size = 5
         self.last_activity = None
-        self.connection_timeout = config.get('connection_timeout', 300)  # 5 minutes default
+        self.connection_timeout = config.get('connection_timeout', 5)  # 5 minutes default
     
     def connect(self, retry_count: int = 3, retry_delay: int = 2) -> snowflake.connector.SnowflakeConnection:
         """Establish connection to Snowflake with retry mechanism."""
@@ -49,7 +49,7 @@ class SnowflakeClient:
                     'timeout': 30,
                     'login_timeout': 30,
                     'insecure_mode': True,  # Disable SSL certificate validation
-                    'network_timeout': self.connection_timeout,  # Use configured timeout
+                    'network_timeout': self.connection_timeout * 60,  # Convert minutes to seconds
                     'query_timeout': 0,  # Unlimited query timeout
                     # Application identification
                     'application': 'Winter-Terminal-Client'
@@ -150,8 +150,9 @@ class SnowflakeClient:
         # Check if connection has timed out
         if self.last_activity is not None:
             time_since_activity = time.time() - self.last_activity
-            if time_since_activity > self.connection_timeout:
-                console.print(f"⏰ Connection timed out after {self.connection_timeout} seconds of inactivity")
+            timeout_seconds = self.connection_timeout * 60  # Convert minutes to seconds
+            if time_since_activity > timeout_seconds:
+                console.print(f"⏰ Connection timed out after {self.connection_timeout} minutes of inactivity")
                 self.is_connected = False
                 return False
         

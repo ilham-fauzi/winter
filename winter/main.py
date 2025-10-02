@@ -343,7 +343,7 @@ def execute_query(query, limit, max_columns, interactive):
         if not hasattr(winter.main, 'current_client') or not winter.main.current_client:
             # Try to load connection state
             from winter.connection_state import ConnectionState
-            connection_state = ConnectionState()
+            connection_state = ConnectionState(config)
             
             if connection_state.is_connected():
                 console.print("🔌 Found saved connection state. Reconnecting...")
@@ -441,6 +441,7 @@ def execute_query(query, limit, max_columns, interactive):
                 # Standard Rich table display with formatting
                 from rich.table import Table
                 from winter.formatters import DataFormatter, ColumnAnalyzer
+                from winter.header_formatter import create_smart_header_formatter
                 
                 formatter = DataFormatter()
                 analyzer = ColumnAnalyzer()
@@ -459,19 +460,27 @@ def execute_query(query, limit, max_columns, interactive):
                     expand=True  # This enables horizontal scrolling
                 )
                 
-                # Add columns with clean headers
-                for col in display_cols:
+                # Add columns with smart header formatting
+                header_formatter = create_smart_header_formatter()
+                formatted_headers = header_formatter.format_headers_smart(display_cols, max_width=30)
+                
+                for i, col in enumerate(display_cols):
                     col_info = column_info.get(col, {})
                     col_type = col_info.get('type', 'text')
                     
-                    # Use clean column name without icons
-                    header_text = col
+                    # Use formatted header with smart scaling
+                    display_header, full_header = formatted_headers[i]
+                    
+                    # Calculate dynamic column width based on header length
+                    header_length = len(col)
+                    column_width = max(15, min(header_length + 2, 35))  # Dynamic width
                     
                     table.add_column(
-                        header_text,
+                        display_header,
                         overflow="fold",
-                        min_width=10,
-                        max_width=30  # Prevent columns from being too wide
+                        min_width=column_width,  # Dynamic minimum width
+                        max_width=column_width,   # Dynamic maximum width
+                        no_wrap=False  # Allow wrapping for very long headers
                     )
                 
                 # Add rows with formatted values
@@ -688,7 +697,7 @@ def export_query(query, export_format, output, limit):
         if not hasattr(winter.main, 'current_client') or not winter.main.current_client:
             # Try to load connection state
             from winter.connection_state import ConnectionState
-            connection_state = ConnectionState()
+            connection_state = ConnectionState(config)
             
             if connection_state.is_connected():
                 console.print("🔌 Found saved connection state. Reconnecting...")
@@ -796,7 +805,7 @@ def export_all(query, formats, output, limit):
         if not hasattr(winter.main, 'current_client') or not winter.main.current_client:
             # Try to load connection state
             from winter.connection_state import ConnectionState
-            connection_state = ConnectionState()
+            connection_state = ConnectionState(config)
             
             if connection_state.is_connected():
                 console.print("🔌 Found saved connection state. Reconnecting...")

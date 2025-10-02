@@ -54,32 +54,49 @@ winter manage-favorites
 
 ## 📦 Installation
 
-### From PyPI (Recommended)
+### Quick Install (Recommended)
 ```bash
-pip install winter
-```
-
-### From Source
-```bash
-git clone https://github.com/ilham/winter.git
+# Clone repository
+git clone https://github.com/ilham-fauzi/winter.git
 cd winter
-pip install -e .
+
+# Install Winter (auto-detects OS and installs dependencies)
+make install
 ```
 
-### From GitHub Repository
+### Alternative Installation Methods
+
+#### Linux/macOS
 ```bash
-# Install directly from GitHub
-pip install git+https://github.com/ilham/winter.git
-
-# Install specific version/tag
-pip install git+https://github.com/ilham/winter.git@v1.0.0
+chmod +x install.sh
+./install.sh
 ```
 
-### Development Installation
+#### Windows
+```cmd
+# Command Prompt
+install.bat
+
+# PowerShell
+.\install.ps1
+```
+
+#### Manual Installation
 ```bash
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+# Install dependencies
+pip install snowflake-connector-python cryptography pyyaml rich click inquirer openpyxl pyperclip pynput
+
+# Install Winter
+pip install .
 ```
+
+### Installation Options
+- **pipx** (recommended): Isolated environment
+- **pip --user**: User installation
+- **pip**: System installation
+- **Development mode**: For contributors
+
+For detailed installation instructions, see [INSTALL.md](INSTALL.md).
 
 ## ⚙️ Configuration
 
