@@ -54,55 +54,49 @@ winter manage-favorites
 
 ## 📦 Installation
 
-### From PyPI (Recommended)
+### Quick Install (Recommended)
 ```bash
-pip install winter
-```
-
-### From Source
-```bash
-git clone https://github.com/ilham/winter.git
+# Clone repository
+git clone https://github.com/ilham-fauzi/winter.git
 cd winter
-pip install -e .
+
+# Install Winter (auto-detects OS and installs dependencies)
+make install
 ```
 
-### From GitHub Repository
+### Alternative Installation Methods
 
-#### **macOS/Windows:**
+#### Linux/macOS
 ```bash
-# Install directly from GitHub
-pip install git+https://github.com/ilham-fauzi/winter.git
-
-# Install specific version/tag
-pip install git+https://github.com/ilham-fauzi/winter.git@v1.0.0
+chmod +x install.sh
+./install.sh
 ```
 
-#### **Linux (Ubuntu/Debian):**
+#### Windows
+```cmd
+# Command Prompt
+install.bat
+
+# PowerShell
+.\install.ps1
+```
+
+#### Manual Installation
 ```bash
-# Option 1: Using pipx (Recommended)
-sudo apt install pipx
-pipx install git+https://github.com/ilham-fauzi/winter.git
+# Install dependencies
+pip install snowflake-connector-python cryptography pyyaml rich click inquirer openpyxl pyperclip pynput
 
-# Option 2: Using virtual environment
-python3 -m venv winter-env
-source winter-env/bin/activate
-pip install git+https://github.com/ilham-fauzi/winter.git
-
-# Option 3: User installation
-pip3 install --user git+https://github.com/ilham-fauzi/winter.git
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Option 4: If pyarrow build fails, install dependencies first
-sudo apt install cmake build-essential python3-pyarrow python3-pandas
-pip3 install --user git+https://github.com/ilham-fauzi/winter.git
+# Install Winter
+pip install .
 ```
 
-### Development Installation
-```bash
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-```
+### Installation Options
+- **pipx** (recommended): Isolated environment
+- **pip --user**: User installation
+- **pip**: System installation
+- **Development mode**: For contributors
+
+For detailed installation instructions, see [INSTALL.md](INSTALL.md).
 
 ## ⚙️ Configuration
 
