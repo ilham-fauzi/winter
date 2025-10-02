@@ -5,6 +5,7 @@ Snowflake connection and query execution.
 import snowflake.connector
 import time
 import logging
+import getpass
 from cryptography.hazmat.primitives import serialization
 from typing import Dict, Any, List, Optional, Tuple
 from rich.console import Console
@@ -24,6 +25,8 @@ class SnowflakeClient:
         self.is_connected = False
         self.connection_pool = []
         self.max_pool_size = 5
+        self.last_activity = None
+        self.connection_timeout = config.get('connection_timeout', 300)  # 5 minutes default
     
     def connect(self, retry_count: int = 3, retry_delay: int = 2) -> snowflake.connector.SnowflakeConnection:
         """Establish connection to Snowflake with retry mechanism."""
@@ -31,32 +34,49 @@ class SnowflakeClient:
             try:
                 console.print(f"🔌 Connecting to Snowflake (attempt {attempt + 1}/{retry_count})...")
                 
-                # Load private key
-                private_key = self._load_private_key()
-                
                 # Normalize account format
                 normalized_account = self._normalize_account(self.config['account'])
                 
-                # Establish connection with proper keypair authentication
-                self.connection = snowflake.connector.connect(
-                    account=normalized_account,
-                    user=self.config['user'],
-                    private_key=private_key,
-                    warehouse=self.config['warehouse'],
-                    database=self.config['database'],
-                    schema=self.config['schema'],
-                    role=self.config['role'],
-                    # Connection options for better stability (based on sfui/winter)
-                    timeout=30,
-                    login_timeout=30,
-                    insecure_mode=True,  # Disable SSL certificate validation
-                    network_timeout=300,  # 5 minutes network timeout
-                    query_timeout=0,  # Unlimited query timeout
+                # Prepare connection parameters based on authentication method
+                connection_params = {
+                    'account': normalized_account,
+                    'user': self.config['user'],
+                    'warehouse': self.config['warehouse'],
+                    'database': self.config['database'],
+                    'schema': self.config['schema'],
+                    'role': self.config['role'],
+                    # Connection options for better stability
+                    'timeout': 30,
+                    'login_timeout': 30,
+                    'insecure_mode': True,  # Disable SSL certificate validation
+                    'network_timeout': self.connection_timeout,  # Use configured timeout
+                    'query_timeout': 0,  # Unlimited query timeout
                     # Application identification
-                    application='Winter-Terminal-Client'
-                )
+                    'application': 'Winter-Terminal-Client'
+                }
+                
+                # Add authentication based on method
+                auth_method = self.config.get('auth_method', 'keypair')
+                
+                if auth_method == 'keypair':
+                    # Load private key for keypair authentication
+                    private_key = self._load_private_key()
+                    connection_params['private_key'] = private_key
+                elif auth_method == 'password':
+                    # Use password authentication
+                    password = self.config.get('password')
+                    if password is None:
+                        # Prompt for password if not stored
+                        password = getpass.getpass("Password: ")
+                    connection_params['password'] = password
+                else:
+                    raise ValueError(f"Invalid auth_method: {auth_method}")
+                
+                # Establish connection
+                self.connection = snowflake.connector.connect(**connection_params)
                 
                 self.is_connected = True
+                self.last_activity = time.time()
                 console.print("✅ Successfully connected to Snowflake!")
                 
                 # Test connection with simple query
@@ -122,10 +142,35 @@ class SnowflakeClient:
         except Exception as e:
             console.print(f"⚠️  Connection test failed: {e}")
     
+    def _is_connection_valid(self) -> bool:
+        """Check if connection is still alive and not timed out."""
+        if not self.is_connected or not self.connection:
+            return False
+        
+        # Check if connection has timed out
+        if self.last_activity is not None:
+            time_since_activity = time.time() - self.last_activity
+            if time_since_activity > self.connection_timeout:
+                console.print(f"⏰ Connection timed out after {self.connection_timeout} seconds of inactivity")
+                self.is_connected = False
+                return False
+        
+        # Check if connection is still alive
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            cursor.close()
+            return True
+        except:
+            self.is_connected = False
+            return False
+    
     def execute_query(self, query: str, fetch_all: bool = True) -> List[tuple]:
         """Execute SQL query and return results."""
-        if not self.is_connected or not self.connection:
-            raise ConnectionError("Not connected to Snowflake. Run 'winter connect' first.")
+        # Check if connection is still alive and not timed out
+        if not self._is_connection_valid():
+            raise ConnectionError("Connection expired or lost. Run 'winter connect' first.")
         
         try:
             cursor = self.connection.cursor()
@@ -133,6 +178,9 @@ class SnowflakeClient:
             
             start_time = time.time()
             cursor.execute(query)
+            
+            # Update last activity time
+            self.last_activity = time.time()
             
             if fetch_all:
                 results = cursor.fetchall()
@@ -150,8 +198,9 @@ class SnowflakeClient:
     
     def execute_query_with_columns(self, query: str) -> Tuple[List[str], List[tuple]]:
         """Execute query and return columns and results."""
-        if not self.is_connected or not self.connection:
-            raise ConnectionError("Not connected to Snowflake. Run 'winter connect' first.")
+        # Check if connection is still alive and not timed out
+        if not self._is_connection_valid():
+            raise ConnectionError("Connection expired or lost. Run 'winter connect' first.")
         
         try:
             cursor = self.connection.cursor()
@@ -159,6 +208,9 @@ class SnowflakeClient:
             
             start_time = time.time()
             cursor.execute(query)
+            
+            # Update last activity time
+            self.last_activity = time.time()
             
             # Get column names
             columns = [desc[0] for desc in cursor.description] if cursor.description else []
