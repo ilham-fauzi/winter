@@ -1028,5 +1028,185 @@ def manage_favorites():
         console.print(f"❌ Failed to manage favorites: {e}")
 
 
+@main.command()
+@click.option('--check-only', is_flag=True, help='Hanya cek versi terbaru tanpa melakukan update')
+@click.option('--include-deps', is_flag=True, help='Update dependencies juga')
+def update(check_only, include_deps):
+    """Update Winter package ke versi terbaru."""
+    import subprocess
+    import sys
+    import json
+    import urllib.request
+    from packaging import version
+    from winter.utils.version import get_current_version
+    
+    try:
+        # Dapatkan versi saat ini
+        current_version = get_current_version()
+        
+        console.print("🔍 Mengecek versi terbaru Winter...")
+        
+        # Cek versi terbaru dari PyPI
+        try:
+            url = "https://pypi.org/pypi/winter/json"
+            with urllib.request.urlopen(url) as response:
+                data = json.loads(response.read())
+                latest_version = data['info']['version']
+        except Exception as e:
+            console.print(f"❌ Gagal mengecek versi terbaru: {e}")
+            console.print("💡 Pastikan koneksi internet tersedia")
+            return
+        
+        # Bandingkan versi
+        current_ver = version.parse(current_version)
+        latest_ver = version.parse(latest_version)
+        
+        console.print(f"📦 Versi saat ini: {current_version}")
+        console.print(f"📦 Versi terbaru: {latest_version}")
+        
+        if current_ver >= latest_ver:
+            console.print("✅ Winter sudah dalam versi terbaru!")
+            return
+        
+        if check_only:
+            console.print(f"🔄 Update tersedia: {current_version} → {latest_version}")
+            console.print("💡 Jalankan 'winter update' untuk melakukan update")
+            return
+        
+        # Konfirmasi update
+        console.print(f"\n🔄 Update tersedia: {current_version} → {latest_version}")
+        confirm = console.input("Apakah Anda ingin melanjutkan update? (y/N): ")
+        
+        if confirm.lower() not in ['y', 'yes', 'ya']:
+            console.print("❌ Update dibatalkan")
+            return
+        
+        # Lakukan update
+        console.print("\n🔄 Memulai update Winter...")
+        
+        # Update winter package
+        update_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "winter"]
+        
+        if include_deps:
+            console.print("📦 Update dependencies juga...")
+            update_cmd.extend(["--upgrade"])
+        
+        result = subprocess.run(update_cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            console.print("✅ Winter berhasil diupdate!")
+            console.print("🔄 Restart terminal atau jalankan 'winter --version' untuk memverifikasi")
+            
+            # Tampilkan output pip jika ada
+            if result.stdout:
+                console.print("\n📋 Output update:")
+                console.print(result.stdout)
+        else:
+            console.print("❌ Update gagal!")
+            console.print(f"Error: {result.stderr}")
+            console.print("💡 Coba jalankan: pip install --upgrade winter")
+        
+    except ImportError:
+        console.print("❌ Package 'packaging' tidak ditemukan")
+        console.print("💡 Install dengan: pip install packaging")
+    except Exception as e:
+        console.print(f"❌ Update gagal: {e}")
+
+
+@main.command()
+def check_update():
+    """Cek apakah ada update tersedia untuk Winter."""
+    import json
+    import urllib.request
+    from packaging import version
+    from winter.utils.version import get_current_version
+    
+    try:
+        # Dapatkan versi saat ini
+        current_version = get_current_version()
+        
+        console.print("🔍 Mengecek update Winter...")
+        
+        # Cek versi terbaru dari PyPI
+        try:
+            url = "https://pypi.org/pypi/winter/json"
+            with urllib.request.urlopen(url) as response:
+                data = json.loads(response.read())
+                latest_version = data['info']['version']
+        except Exception as e:
+            console.print(f"❌ Gagal mengecek versi terbaru: {e}")
+            console.print("💡 Pastikan koneksi internet tersedia")
+            return
+        
+        # Bandingkan versi
+        current_ver = version.parse(current_version)
+        latest_ver = version.parse(latest_version)
+        
+        console.print(f"📦 Versi saat ini: {current_version}")
+        console.print(f"📦 Versi terbaru: {latest_version}")
+        
+        if current_ver >= latest_ver:
+            console.print("✅ Winter sudah dalam versi terbaru!")
+        else:
+            console.print(f"🔄 Update tersedia: {current_version} → {latest_version}")
+            console.print("💡 Jalankan 'winter update' untuk melakukan update")
+            
+            # Tampilkan informasi update
+            update_info = data['info']
+            if 'description' in update_info and update_info['description']:
+                console.print(f"\n📝 Deskripsi update:")
+                console.print(update_info['description'][:200] + "..." if len(update_info['description']) > 200 else update_info['description'])
+        
+    except ImportError:
+        console.print("❌ Package 'packaging' tidak ditemukan")
+        console.print("💡 Install dengan: pip install packaging")
+    except Exception as e:
+        console.print(f"❌ Gagal mengecek update: {e}")
+
+
+@main.command()
+def package_info():
+    """Tampilkan informasi detail package Winter."""
+    from winter.utils.version import get_package_info
+    from rich.panel import Panel
+    from rich.table import Table
+    
+    try:
+        info = get_package_info()
+        
+        # Tampilkan informasi dasar
+        console.print(Panel.fit(
+            f"Package: {info['name']}\n"
+            f"Version: {info['version']}\n"
+            f"Location: {info['location'] or 'Development mode'}\n"
+            f"Status: {'Installed' if info['installed'] else 'Development mode'}",
+            title="Winter Package Info",
+            border_style="blue"
+        ))
+        
+        # Tampilkan dependencies jika ada
+        if info['requires']:
+            console.print("\n📦 Dependencies:")
+            table = Table(show_header=True, header_style="bold green")
+            table.add_column("Package", style="cyan")
+            table.add_column("Version", style="magenta")
+            
+            for req in info['requires']:
+                # Parse requirement string
+                if '==' in req:
+                    pkg, ver = req.split('==', 1)
+                    table.add_row(pkg, ver)
+                elif '>=' in req:
+                    pkg, ver = req.split('>=', 1)
+                    table.add_row(pkg, f">= {ver}")
+                else:
+                    table.add_row(req, "Any")
+            
+            console.print(table)
+        
+    except Exception as e:
+        console.print(f"❌ Gagal mendapatkan informasi package: {e}")
+
+
 if __name__ == "__main__":
     main()
