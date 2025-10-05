@@ -1,0 +1,48 @@
+# Include important files in distribution
+include README.md
+include LICENSE
+include requirements.txt
+include requirements-dev.txt
+include pyproject.toml
+include setup.py
+
+# Include documentation
+recursive-include docs *.md
+
+# Include example configurations
+recursive-include examples *.yaml
+recursive-include examples *.yml
+
+# Include package data
+recursive-include winter *.py
+recursive-include winter *.yaml
+recursive-include winter *.yml
+
+# Include scripts
+include *.sh
+include *.bat
+include *.ps1
+include Makefile
+
+# Exclude unnecessary files
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude *.so
+global-exclude .DS_Store
+global-exclude .git*
+global-exclude .pytest_cache
+global-exclude .coverage
+global-exclude htmlcov
+global-exclude .tox
+global-exclude .mypy_cache
+global-exclude .black
+global-exclude .flake8
+global-exclude .isort.cfg
+global-exclude .pre-commit-config.yaml
+global-exclude .github
+global-exclude tests
+global-exclude test_*
+global-exclude *_test.py
+global-exclude winter.egg-info
+global-exclude build
+global-exclude dist
