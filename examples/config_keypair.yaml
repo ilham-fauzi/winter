@@ -4,7 +4,7 @@
 account: your_account.snowflakecomputing.com
 user: your_username
 auth_method: keypair
-private_key_path: ~/.winter/rsa_key.p8
+private_key_path: ~/.winter/rsa_key.p8  # Supports: .p8, .pem, .key, .rsa, .pkcs8, .der, .crt, .cer, .p12, .pfx
 warehouse: COMPUTE_WH
 database: YOUR_DATABASE
 schema: PUBLIC

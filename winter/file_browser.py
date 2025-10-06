@@ -12,6 +12,20 @@ from rich.table import Table
 
 console = Console()
 
+# Supported RSA key file extensions
+RSA_KEY_EXTENSIONS = {
+    '.p8',      # PKCS#8 format (Snowflake standard)
+    '.pem',     # Privacy Enhanced Mail format
+    '.key',     # Generic private key format
+    '.rsa',     # RSA specific format
+    '.pkcs8',   # PKCS#8 format (alternative extension)
+    '.der',     # Distinguished Encoding Rules (binary)
+    '.crt',     # Certificate format (bisa berisi private key)
+    '.cer',     # Certificate format (alternative)
+    '.p12',     # PKCS#12 format (bisa berisi private key)
+    '.pfx',     # Personal Information Exchange format
+}
+
 
 class FileBrowser:
     """Simple file browser for selecting private key files."""
@@ -20,11 +34,12 @@ class FileBrowser:
         self.current_path = Path(start_path or os.path.expanduser("~"))
         self.selected_file = None
     
-    def browse_for_p8_file(self) -> str:
-        """Browse for .p8 private key file."""
-        console.print("\n🔍 File Browser - Select Private Key File")
+    def browse_for_rsa_key_file(self) -> str:
+        """Browse for RSA private key file (all supported extensions)."""
+        console.print("\n🔍 File Browser - Select RSA Private Key File")
         console.print("📁 Use arrow keys to navigate, Enter to select, 'q' to quit")
-        console.print("🔍 Type 'search' to search for .p8 files in directories")
+        console.print("🔍 Type 'search' to search for RSA key files in directories")
+        console.print(f"📄 Supported extensions: {', '.join(sorted(RSA_KEY_EXTENSIONS))}")
         
         while True:
             self._display_directory()
@@ -40,7 +55,7 @@ class FileBrowser:
                 continue
             
             if choice.lower() == 'search':
-                search_result = self._search_for_p8_files()
+                search_result = self._search_for_rsa_key_files()
                 if search_result:
                     return search_result
                 continue
@@ -60,13 +75,13 @@ class FileBrowser:
         try:
             items = []
             for item in self.current_path.iterdir():
-                if item.is_file() and item.suffix == '.p8':
+                if item.is_file() and item.suffix.lower() in RSA_KEY_EXTENSIONS:
                     items.append(('file', item))
                 elif item.is_dir() and not item.name.startswith('.'):
                     items.append(('dir', item))
             
             if not items:
-                console.print("📭 No .p8 files or directories found")
+                console.print(f"📭 No RSA key files ({', '.join(sorted(RSA_KEY_EXTENSIONS))}) or directories found")
                 return
             
             # Create table
@@ -95,7 +110,7 @@ class FileBrowser:
         try:
             items = []
             for item in self.current_path.iterdir():
-                if item.is_file() and item.suffix == '.p8':
+                if item.is_file() and item.suffix.lower() in RSA_KEY_EXTENSIONS:
                     items.append(('file', item))
                 elif item.is_dir() and not item.name.startswith('.'):
                     items.append(('dir', item))
@@ -160,9 +175,9 @@ class FileBrowser:
         else:
             return f"{size_bytes / (1024 * 1024):.1f} MB"
     
-    def _search_for_p8_files(self) -> str:
-        """Search for .p8 files in directories."""
-        console.print("\n🔍 Search for .p8 Files")
+    def _search_for_rsa_key_files(self) -> str:
+        """Search for RSA key files in directories."""
+        console.print("\n🔍 Search for RSA Key Files")
         console.print("1. Search in Downloads directory")
         console.print("2. Search in Desktop directory")
         console.print("3. Search in Documents directory")
@@ -197,15 +212,17 @@ class FileBrowser:
             console.print(f"❌ Directory not found: {search_path}")
             return None
         
-        console.print(f"🔍 Searching for .p8 files in: {search_path}")
+        console.print(f"🔍 Searching for RSA key files in: {search_path}")
+        console.print(f"📄 Looking for extensions: {', '.join(sorted(RSA_KEY_EXTENSIONS))}")
         console.print("⏳ Please wait...")
         
-        # Search for .p8 files recursively
-        p8_files = []
+        # Search for RSA key files recursively
+        rsa_key_files = []
         try:
-            for file_path in search_path.rglob("*.p8"):
-                if file_path.is_file():
-                    p8_files.append(file_path)
+            for ext in RSA_KEY_EXTENSIONS:
+                for file_path in search_path.rglob(f"*{ext}"):
+                    if file_path.is_file():
+                        rsa_key_files.append(file_path)
         except PermissionError:
             console.print("❌ Permission denied to search this directory")
             return None
@@ -213,12 +230,12 @@ class FileBrowser:
             console.print(f"❌ Error searching: {e}")
             return None
         
-        if not p8_files:
-            console.print("📭 No .p8 files found in this directory")
+        if not rsa_key_files:
+            console.print(f"📭 No RSA key files ({', '.join(sorted(RSA_KEY_EXTENSIONS))}) found in this directory")
             return None
         
         # Display found files
-        console.print(f"\n✅ Found {len(p8_files)} .p8 files:")
+        console.print(f"\n✅ Found {len(rsa_key_files)} RSA key files:")
         
         table = Table(show_header=True, header_style="bold green")
         table.add_column("#", style="dim", width=4)
@@ -226,7 +243,7 @@ class FileBrowser:
         table.add_column("Directory", style="cyan", width=50)
         table.add_column("Size", style="magenta", width=12)
         
-        for i, file_path in enumerate(p8_files, 1):
+        for i, file_path in enumerate(rsa_key_files, 1):
             try:
                 size = self._format_size(file_path.stat().st_size)
                 table.add_row(
@@ -242,15 +259,15 @@ class FileBrowser:
         
         # Let user select a file
         while True:
-            choice = console.input(f"\n[bold blue]Select file (1-{len(p8_files)}, 'c' to cancel):[/bold blue] ")
+            choice = console.input(f"\n[bold blue]Select file (1-{len(rsa_key_files)}, 'c' to cancel):[/bold blue] ")
             
             if choice.lower() == 'c':
                 return None
             
             try:
                 choice_num = int(choice)
-                if 1 <= choice_num <= len(p8_files):
-                    selected_file = p8_files[choice_num - 1]
+                if 1 <= choice_num <= len(rsa_key_files):
+                    selected_file = rsa_key_files[choice_num - 1]
                     console.print(f"✅ Selected file: {selected_file.name}")
                     
                     # Show file info
@@ -267,8 +284,8 @@ class FileBrowser:
                 console.print("❌ Invalid input")
 
 
-def browse_and_copy_p8_file(config_dir: Path) -> str:
-    """Browse for .p8 file and copy it to config directory."""
+def browse_and_copy_rsa_key_file(config_dir: Path) -> str:
+    """Browse for RSA key file and copy it to config directory."""
     browser = FileBrowser()
     
     # Start from Downloads directory if it exists
@@ -276,7 +293,7 @@ def browse_and_copy_p8_file(config_dir: Path) -> str:
     if downloads_path.exists():
         browser.current_path = downloads_path
     
-    selected_file = browser.browse_for_p8_file()
+    selected_file = browser.browse_for_rsa_key_file()
     
     if not selected_file:
         console.print("❌ No file selected")
@@ -286,8 +303,8 @@ def browse_and_copy_p8_file(config_dir: Path) -> str:
     
     # Copy file to config directory
     try:
-        # Use consistent filename
-        target_file = config_dir / "rsa_key.p8"
+        # Use consistent filename with original extension
+        target_file = config_dir / f"rsa_key{source_file.suffix}"
         
         # Ensure config directory exists
         config_dir.mkdir(parents=True, exist_ok=True)
@@ -299,8 +316,15 @@ def browse_and_copy_p8_file(config_dir: Path) -> str:
         os.chmod(target_file, 0o600)
         
         console.print(f"✅ File copied to: {target_file}")
+        console.print(f"📄 Original extension preserved: {source_file.suffix}")
         return str(target_file)
         
     except Exception as e:
         console.print(f"❌ Failed to copy file: {e}")
         return None
+
+
+# Backward compatibility
+def browse_and_copy_p8_file(config_dir: Path) -> str:
+    """Browse for RSA key file and copy it to config directory (backward compatibility)."""
+    return browse_and_copy_rsa_key_file(config_dir)

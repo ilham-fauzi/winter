@@ -63,15 +63,30 @@ def save_config(config: Dict[str, Any], config_path: Optional[str] = None):
     os.chmod(config_file, 0o600)
 
 
+# Supported RSA key file extensions
+RSA_KEY_EXTENSIONS = {
+    '.p8',      # PKCS#8 format (Snowflake standard)
+    '.pem',     # Privacy Enhanced Mail format
+    '.key',     # Generic private key format
+    '.rsa',     # RSA specific format
+    '.pkcs8',   # PKCS#8 format (alternative extension)
+    '.der',     # Distinguished Encoding Rules (binary)
+    '.crt',     # Certificate format (bisa berisi private key)
+    '.cer',     # Certificate format (alternative)
+    '.p12',     # PKCS#12 format (bisa berisi private key)
+    '.pfx',     # Personal Information Exchange format
+}
+
+
 def validate_key_file(key_path: str) -> bool:
-    """Validate private key file."""
+    """Validate RSA private key file (all supported extensions)."""
     path = Path(key_path).expanduser()
     
     if not path.exists():
         raise FileNotFoundError(f"Private key file not found: {path}")
     
-    if not path.suffix == '.p8':
-        raise ValueError(f"Private key file must have .p8 extension: {path}")
+    if not path.suffix.lower() in RSA_KEY_EXTENSIONS:
+        raise ValueError(f"Private key file must have one of these extensions: {', '.join(sorted(RSA_KEY_EXTENSIONS))}. Found: {path.suffix}")
     
     # Check file permissions
     stat = path.stat()

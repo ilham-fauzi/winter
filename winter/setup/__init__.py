@@ -108,16 +108,16 @@ def run_setup_wizard():
         console.print("\n🔑 RSA Keypair Authentication:")
         
         # Ask if user wants to browse for file or enter path manually
-        console.print("1. Browse for .p8 file (Recommended)")
+        console.print("1. Browse for RSA key file (Recommended)")
         console.print("2. Enter file path manually")
         browse_choice = Prompt.ask("Choose option", choices=["1", "2"], default="1")
         
         if browse_choice == "1":
             # Use file browser
-            from winter.file_browser import browse_and_copy_p8_file
+            from winter.file_browser import browse_and_copy_rsa_key_file
             
             console.print("🔍 Opening file browser...")
-            key_path = browse_and_copy_p8_file(config_dir)
+            key_path = browse_and_copy_rsa_key_file(config_dir)
             
             if not key_path:
                 console.print("❌ No file selected. Setup cancelled.")
@@ -128,23 +128,27 @@ def run_setup_wizard():
             
         else:
             # Manual path entry (existing logic)
-            key_filename = Prompt.ask("Private key filename (without .p8 extension)", default="rsa_key")
+            console.print("\n📄 Supported RSA key extensions:")
+            console.print("   .p8, .pem, .key, .rsa, .pkcs8, .der, .crt, .cer, .p12, .pfx")
+            
+            key_filename = Prompt.ask("Private key filename (with extension)", default="rsa_key.p8")
             
             # Create config directory
             config_dir.mkdir(exist_ok=True)
             
             # Handle key filename
-            if not key_filename.endswith('.p8'):
-                key_filename += '.p8'
+            if not any(key_filename.endswith(ext) for ext in ['.p8', '.pem', '.key', '.rsa', '.pkcs8', '.der', '.crt', '.cer', '.p12', '.pfx']):
+                console.print("⚠️  Warning: File doesn't have a recognized RSA key extension")
+                console.print("   Supported: .p8, .pem, .key, .rsa, .pkcs8, .der, .crt, .cer, .p12, .pfx")
             
             key_path = config_dir / key_filename
             
             # Ask for private key file
-            console.print(f"Please provide the path to your existing .p8 private key file.")
+            console.print(f"Please provide the path to your existing RSA private key file.")
             console.print(f"It will be copied to: {key_path}")
             
             while True:
-                key_file_path = Prompt.ask("Path to your .p8 private key file")
+                key_file_path = Prompt.ask("Path to your RSA private key file")
                 
                 if not key_file_path:
                     console.print("❌ No key file provided")

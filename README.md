@@ -141,12 +141,24 @@ connection_timeout: 5  # Minutes (or use hours: 0.5 = 30 minutes)
 ### 🔍 File Browser for Private Key Setup
 
 **Interactive File Selection:**
-- 🔍 **File browser** - Navigate directories to find .p8 files
+- 🔍 **File browser** - Navigate directories to find RSA key files
 - 📁 **Smart navigation** - Start from Downloads directory
-- 📄 **File filtering** - Only shows .p8 files and directories
+- 📄 **File filtering** - Shows all supported RSA key extensions
 - 📊 **File information** - Shows file size and details
-- ✅ **Auto-copy** - Automatically copies selected file to `~/.winter/rsa_key.p8`
-- 🔍 **Manual search** - Search for .p8 files in specific directories
+- ✅ **Auto-copy** - Automatically copies selected file to `~/.winter/rsa_key.{ext}`
+- 🔍 **Manual search** - Search for RSA key files in specific directories
+
+**Supported RSA Key Extensions:**
+- 📄 **.p8** - PKCS#8 format (Snowflake standard)
+- 📄 **.pem** - Privacy Enhanced Mail format
+- 📄 **.key** - Generic private key format
+- 📄 **.rsa** - RSA specific format
+- 📄 **.pkcs8** - PKCS#8 format (alternative extension)
+- 📄 **.der** - Distinguished Encoding Rules (binary)
+- 📄 **.crt** - Certificate format (bisa berisi private key)
+- 📄 **.cer** - Certificate format (alternative)
+- 📄 **.p12** - PKCS#12 format (bisa berisi private key)
+- 📄 **.pfx** - Personal Information Exchange format
 
 **Search Options:**
 - 📥 **Downloads directory** - Search in Downloads folder
@@ -154,17 +166,17 @@ connection_timeout: 5  # Minutes (or use hours: 0.5 = 30 minutes)
 - 📄 **Documents directory** - Search in Documents folder
 - 🏠 **Home directory** - Search in entire home directory
 - 📁 **Custom directory** - Search in user-specified directory
-- 🔄 **Recursive search** - Finds .p8 files in subdirectories
+- 🔄 **Recursive search** - Finds RSA key files in subdirectories
 
 **Setup Flow:**
 ```bash
 winter setup
 
 # Choose RSA Keypair Authentication
-# Choose "Browse for .p8 file (Recommended)"
+# Choose "Browse for RSA key file (Recommended)"
 # Navigate directories OR type 'search' for manual search
-# Select your .p8 file
-# File automatically copied to ~/.winter/rsa_key.p8
+# Select your RSA key file (any supported extension)
+# File automatically copied to ~/.winter/rsa_key.{original_extension}
 ```
 
 ### ⏰ Connection Timeout Configuration

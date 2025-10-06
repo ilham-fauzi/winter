@@ -8,6 +8,7 @@ import logging
 import getpass
 from cryptography.hazmat.primitives import serialization
 from typing import Dict, Any, List, Optional, Tuple
+from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -111,21 +112,55 @@ class SnowflakeClient:
         return account
     
     def _load_private_key(self):
-        """Load private key from file."""
+        """Load private key from file (supports all RSA key formats)."""
         try:
             key_path = self.config['private_key_path']
-            with open(key_path, 'r') as key_file:
-                private_key_content = key_file.read()
+            key_file_path = Path(key_path)
             
-            # Validate that it's a valid private key format
-            if not ('BEGIN PRIVATE KEY' in private_key_content or 'BEGIN RSA PRIVATE KEY' in private_key_content):
-                raise ValueError(f"Invalid private key format in {key_path}. Expected .p8 file.")
+            # Check file extension
+            supported_extensions = {'.p8', '.pem', '.key', '.rsa', '.pkcs8', '.der', '.crt', '.cer', '.p12', '.pfx'}
+            if key_file_path.suffix.lower() not in supported_extensions:
+                raise ValueError(f"Unsupported key file extension: {key_file_path.suffix}. Supported: {', '.join(sorted(supported_extensions))}")
             
-            # Load the private key using cryptography
-            private_key = serialization.load_pem_private_key(
-                private_key_content.encode('utf-8'),
-                password=self.config.get('private_key_passphrase', None)
-            )
+            # Handle different file formats
+            if key_file_path.suffix.lower() in {'.der', '.p12', '.pfx'}:
+                # Binary formats - read as binary
+                with open(key_path, 'rb') as key_file:
+                    private_key_content = key_file.read()
+                
+                # Try to load as DER format
+                try:
+                    private_key = serialization.load_der_private_key(
+                        private_key_content,
+                        password=self.config.get('private_key_passphrase', None)
+                    )
+                except Exception:
+                    # Try PKCS#12 format
+                    try:
+                        from cryptography.hazmat.primitives import serialization as pkcs12_serialization
+                        private_key = pkcs12_serialization.load_pkcs12(
+                            private_key_content,
+                            password=self.config.get('private_key_passphrase', None)
+                        ).key
+                    except Exception as e:
+                        raise ValueError(f"Failed to load binary key format: {e}")
+            else:
+                # Text formats - read as text
+                with open(key_path, 'r') as key_file:
+                    private_key_content = key_file.read()
+                
+                # Validate that it's a valid private key format
+                if not any(marker in private_key_content for marker in [
+                    'BEGIN PRIVATE KEY', 'BEGIN RSA PRIVATE KEY', 'BEGIN EC PRIVATE KEY',
+                    'BEGIN ENCRYPTED PRIVATE KEY', '-----BEGIN'
+                ]):
+                    raise ValueError(f"Invalid private key format in {key_path}. Expected PEM format.")
+                
+                # Load the private key using cryptography
+                private_key = serialization.load_pem_private_key(
+                    private_key_content.encode('utf-8'),
+                    password=self.config.get('private_key_passphrase', None)
+                )
             
             return private_key
         except Exception as e:
